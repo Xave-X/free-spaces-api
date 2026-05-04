@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:18-alpine
+    container_name: free-spaces-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    healthcheck: # DD added healthcheck to ensure database engine ready
+      test: ["CMD-SHELL", "pg_isready -U postgres -d free_spaces"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql # DD changed due to the Docker build not working, was - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build: .
+    container_name: free-spaces-api
+    depends_on:
+      db: # DD if only this line, only ensures Postgre container is running, not that database engine is ready
+        condition: service_healthy # DD with this, waits for database engine to be ready
+    ports:
+      - "3000:3000"
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+
+volumes:
+  postgres_data:
