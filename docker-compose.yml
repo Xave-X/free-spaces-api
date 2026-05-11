@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     healthcheck: # DD added healthcheck to ensure database engine ready
-      test: ["CMD-SHELL", "pg_isready -U postgres -d free_spaces"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"] # DD updated to use vars
       interval: 5s
       timeout: 5s
       retries: 5
@@ -27,8 +27,20 @@ services:
         condition: service_healthy # DD with this, waits for database engine to be ready
     ports:
       - "3000:3000"
+    volumes:                    # 
+      - .:/app                  # Syncs your local code with the container; This makes your local src folder "live" inside the container
+      - /app/node_modules       # Protects container's node_modules from host overrides; Keeps Linux modeules safe from overwrites by Windows binaries
+    command: sh -c "npm install && npm run start:dev"  # Overrides ["node", "dist/main"] from the Dockerfile to enable the watcher
+    # NOTE: Using 'sh -c "npm install && ..."' is a "Sync & Fix" strategy.
+    # 1. Volume Shadowing: The bind mount (.:/app) can hide or corrupt the node_modules 
+    # created during build, especially when moving between Windows and Linux.
+    # 2. Binary Compatibility: Ensures 'nest' and other .bin symlinks are correctly 
+    #    re-linked for the Linux container environment.
+    # 3. Auto-Update: Automatically picks up new dependencies added during local development 
+    #    without requiring a full 'docker compose build'.
+
     environment:
-      DB_HOST: ${DB_HOST}
+      DB_HOST: db
       DB_PORT: ${DB_PORT}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
